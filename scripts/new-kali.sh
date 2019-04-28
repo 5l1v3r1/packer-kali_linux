@@ -9,7 +9,7 @@ hashAlg='SHA256SUMS'
 kaliBaseUrl='https://cdimage.kali.org/'
 # current
 kaliCurrentYear="$(date +%Y)"
-kaliCurrentUrl="${kaliBaseUrl}current/"
+kaliCurrentUrl="${kaliBaseUrl}kali-weekly/"
 kaliCurrentSHAUrl="${kaliCurrentUrl}${hashAlg}"
 curl='curl -fsSL'
 secretFileFullPath="${HOME}/src/mine/secrets/access_data"
