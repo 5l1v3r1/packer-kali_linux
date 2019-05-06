@@ -147,6 +147,8 @@ wait_to_finish(){
   status_file="${project_folder}/status.txt"
   # TODO: check if glob works for scp
   logs="${project_folder}/packer.log"
+  output_dir="."
+  outputs=("red-virtualbox.box")
   too_much_time=120
 
   if [[ $# -eq 3 ]] ; then
@@ -187,6 +189,9 @@ wait_to_finish(){
       msg='Build failed, getting logs..."'
       echo "${msg}"
       retrieve "${logs}" "${ssh_args}"
+      for output in "${outputs[@]}" ; do
+        retrieve "${output_dir}/${output}" "${ssh_args}"
+      done
       send_text "${msg}"
       delete_server
       exit 1
@@ -211,6 +216,7 @@ run_remote(){
   user=root
   project_folder="/opt/packer_kali"
   ssh_args="-oStrictHostKeyChecking=no"
+  ssh_to="${user}@${1}"
 
   add_ecdsa $1
 
@@ -222,15 +228,15 @@ run_remote(){
     msg='starting build'
     echo "${msg}"
     send_text "${msg}"
-    ssh ${user}@${1} -t "CIRCLECI=true bash ${project_folder}/ci/bootstrap.sh"
+    ssh ${ssh_to} -t "CIRCLECI=true bash ${project_folder}/ci/bootstrap.sh"
   else
-    ssh ${user}@${1} -t "CIRCLECI=true bash ${project_folder}/build.sh ${2}"
+    ssh ${ssh_to} -t "CIRCLECI=true bash ${project_folder}/build.sh ${2}"
   fi
   # waiting 5 minutes before continuing
   sleep 5m
 
   # closing function to see the status of the job
-  wait_to_finish "${project_folder}" "${user}@${1}" ${@}
+  wait_to_finish "${project_folder}" "${ssh_to}" ${@}
 }
 
 check_post(){
