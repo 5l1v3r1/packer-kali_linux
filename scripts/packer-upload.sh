@@ -13,6 +13,8 @@ NAME="$2"
 PROVIDER="$3"
 VERSION="$4"
 FILE="$5"
+DESC='dev box'
+base_url='https://app.vagrantup.com/api/v1/box'
 
 if [[ ! -z $CIRCLECI ]] ; then
   CIRCLECI=''
@@ -96,20 +98,37 @@ fi
 
 printf "\n\n"
 
+# create the box
+${CURL} \
+  --tlsv1.2 \
+  --header "Content-Type: application/json" \
+  --header "Authorization: Bearer $VAGRANT_CLOUD_TOKEN" \
+  "${base_url}es" \
+  --data "
+    \"box\": {
+      \"username\": \"${ORG}\",
+      \"name\": \"${NAME}\",
+      \"short_description\": \"${DESC}\",
+      \"description\": \"${DESC}\",
+      \"is_private\": false
+      }
+    }"
+
+printf "\n\n"
+
 # Assume the position, while you create the version.
 ${CURL} \
   --tlsv1.2 \
   --header "Content-Type: application/json" \
   --header "Authorization: Bearer $VAGRANT_CLOUD_TOKEN" \
-  "https://app.vagrantup.com/api/v1/box/$ORG/$NAME/versions" \
+  "${base_url}/$ORG/$NAME/versions" \
   --data "
     {
       \"version\": {
         \"version\": \"$VERSION\",
         \"description\": \"A build environment for use in cross platform development.\"
       }
-    }
-  "
+    }"
 printf "\n\n"
 
 # Create the provider, while become one with your inner child.
@@ -117,7 +136,7 @@ ${CURL} \
   --tlsv1.2 \
   --header "Content-Type: application/json" \
   --header "Authorization: Bearer $VAGRANT_CLOUD_TOKEN" \
-  https://app.vagrantup.com/api/v1/box/$ORG/$NAME/version/$VERSION/providers \
+  "${base_url}/$ORG/$NAME/version/$VERSION/providers" \
   --data "{ \"provider\": { \"name\": \"$PROVIDER\" } }"
 
 printf "\n\n"
@@ -128,10 +147,12 @@ UPLOAD_PATH=$(${CURL} \
   --tlsv1.2 \
   --silent \
   --header "Authorization: Bearer $VAGRANT_CLOUD_TOKEN" \
-  https://app.vagrantup.com/api/v1/box/$ORG/$NAME/version/$VERSION/provider/$PROVIDER/upload | jq -r .upload_path)
+  "${base_url}/$ORG/$NAME/version/$VERSION/provider/$PROVIDER/upload" | jq -r .upload_path)
 
 # Perform the upload, and see the bits boil.
-${CURL} --tlsv1.2 --include --max-time 7200 --expect100-timeout 7200 --request PUT --output "$FILE.upload.log.txt" --upload-file "$FILE" "$UPLOAD_PATH"
+if ! ${CURL} --tlsv1.2 --include --max-time 7200 --expect100-timeout 7200 --request PUT --output "$FILE.upload.log.txt" --upload-file "$FILE" "$UPLOAD_PATH" ; then
+  echo 'This probably "failed", but it mostly actually succeeded and did not get closed properly.'
+fi
 
 printf "\n-----------------------------------------------------\n"
 tput setaf 5
@@ -144,7 +165,7 @@ ${CURL} \
   --tlsv1.2 \
   --silent \
   --header "Authorization: Bearer $VAGRANT_CLOUD_TOKEN" \
-  https://app.vagrantup.com/api/v1/box/$ORG/$NAME/version/$VERSION/release \
+  "${base_url}/$ORG/$NAME/version/$VERSION/release" \
   --request PUT | jq '.status,.version,.providers[]' | grep -vE "hosted|hosted_token|original_url|created_at|updated_at|\}|\{"
 
 printf "\n\n"
