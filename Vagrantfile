@@ -3,6 +3,11 @@
 
 $CIRCLECI=<<SCRIPT
 tee "/etc/profile.d/circleci.sh">"/dev/null"<<EOF
+#!/usr/bin/env bash
+
+# debugging/dev var set
+export DEV=true
+
 # packet info
 export PACKET_API_KEY="#{ENV['PACKET_API_KEY']}"
 export PACKET_PROJECT_UUID="#{ENV['PACKET_PROJECT_UUID']}"

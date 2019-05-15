@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
+# for normal
 set -euo pipefail
+# for debugging
+# set -exuo pipefail
 
 curl="curl -sSL"
 
@@ -147,7 +150,7 @@ wait_to_finish(){
   status_file="${project_folder}/status.txt"
   # TODO: check if glob works for scp
   logs="${project_folder}/packer.log"
-  output_dir="."
+  output_dir="${project_folder}"
   outputs=("red-virtualbox.box")
   too_much_time=120
 
@@ -193,7 +196,7 @@ wait_to_finish(){
         retrieve "${output_dir}/${output}" "${ssh_args}"
       done
       send_text "${msg}"
-      delete_server
+      # delete_server # comment out debug
       exit 1
     fi
 

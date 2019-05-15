@@ -44,8 +44,6 @@ set -u
 #   fi
 # done
 
-
-
 mkdir -p $tmpDir
 
 # kali stable iso

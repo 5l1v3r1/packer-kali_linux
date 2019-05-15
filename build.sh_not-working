@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+# normal
+set -euo pipefail
+# debug
+# set -euo pipefail
+
 for i in $(grep run .circleci/config.yml | rev | awk '{print $1}' | rev) ; do
   # executing everying script found in circle ci config
   bash $i
