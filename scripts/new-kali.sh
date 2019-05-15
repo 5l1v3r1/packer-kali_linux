@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+# for normal
+set -eo pipefail
+# for debugging
+# set -exuo pipefail
 
 hashiName=''
 tmpDir='./tmp'
@@ -13,6 +16,15 @@ kaliCurrentUrl="${kaliBaseUrl}current/"
 kaliCurrentSHAUrl="${kaliCurrentUrl}${hashAlg}"
 curl='curl -fsSL'
 secretFileFullPath="${HOME}/src/mine/secrets/access_data"
+
+if [[ -z $DEV ]] ; then
+  DEV=''
+fi
+
+
+# declaring unbound variables below variable declaration section
+# so you can use environment variables without a problem
+set -u
 
 # # dependencies
 # deps_install(){
@@ -44,7 +56,13 @@ $curl "${kaliCurrentSHAUrl}.gpg" -o "${tmpDir}/${hashAlg}.gpg"
 kaliKey=$($curl $kaliKeyUrl  | gpg --import 2>&1 | grep key | cut -d ' ' -f 3 | cut -d ':' -f 1 )
 
 gpg --fingerprint $kaliKey
+echo "Showing crypto infro"
+
+# format of printout filename\nfile contents\nfilename\nfile contents
+printf "\n%s\n%s\n%s\n%s\n" "$(basename ${tmpDir}/${hashAlg}.gpg)" "$(cat ${tmpDir}/${hashAlg}.gpg)" "$(basename ${tmpDir}/$hashAlg)" "$(cat ${tmpDir}/$hashAlg)"
 echo "verifying shasums "
+
+# validating crypto info
 gpg --verify ${tmpDir}/${hashAlg}.gpg ${tmpDir}/$hashAlg
 
 # current
@@ -56,6 +74,11 @@ currentHashAlg=$(grep $currentKaliISO ${tmpDir}/$hashAlg | cut -d ' ' -f 1)
 currentKali=$(curl -s $kaliBaseUrl | grep 'kali-' | grep -oE 'href.*' | cut -d '"' -f 2 | cut -d '/' -f 1 | grep -v 'kali-weekly' | tail -n 1 | cut -d '-' -f 2- )
 
 namez="kali-linux_amd64"
+
+# this is normally declared in the vagrant box (i.e. debugging/developemnt)
+if [[ -z $DEV ]] ; then
+  namez="${namez}_dev"
+fi
 
 if [[ -f $secretFileFullPath ]] ; then
 	hashiName=$(grep vagrant_cloud $secretFileFullPath | cut -d ':' -f 2)
@@ -69,7 +92,7 @@ if [[ ! -z $hashiName ]]; then
 	namez="${hashiName}/${namez}"
 	vagrantBoxUrl="https://app.vagrantup.com/$namez"
 	if curl -sSL $vagrantBoxUrl | grep 'false' 1> /dev/null ; then
-		vm_version='0.0.1'
+		vm_version='0.0.0'
 	else
 		currentVersion=$($curl $vagrantBoxUrl | jq '{versions}[][0]["version"]' | cut -d '"' -f 2)
 		if [[ $CIRCLECI ]] ; then
