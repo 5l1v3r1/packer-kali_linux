@@ -73,13 +73,7 @@
   	    "output": "red-{{.Provider}}.box",
         "compression_level":9,
   	    "vagrantfile_template": "{{ user `vagrantfile` }}"
-  	  },
-      {
-        "type": "vagrant-cloud",
-        "box_tag": "{{user `vm_name` }}",
-        "access_token": "{{user `vagrant_cloud_token`}}",
-        "version": "{{user `vm_version`}}"
-      }
+  	  }
   	]
   ],
   "description": "{{user `description`}}",
