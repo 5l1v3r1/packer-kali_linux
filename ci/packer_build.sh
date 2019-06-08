@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 # for normal
-set -euo pipefail
+# set -euo pipefail
 # for debugging
-# set -exuo pipefail
+set -exuo pipefail
 
 curl="curl -sSL"
 
@@ -19,14 +19,26 @@ create_server(){
 		# operating system
 		chosen_os='ubuntu_16_04'
 	else
+    # TODO: Setup facility choice
+    # body: Packet has a choice to choose different facilities
+    #       so I would like to implement being able to choose a
+    #       facility in case a user would like to use a particular one
     chosen_facility="$(echo ${facility} | cut -d ' ' -f 1)"
+    # TODO: Setup plan choice
+    # body: Packet has a choice to choose different plans for instance size
+    #       so I would like to implement being able to choose a
+    #       a plan in case a user would like to use a particular one
 		chosen_plan="${plan}"
+    # TODO: Setup os choice
+    # body: Packet has a choice to choose different oses for instance size
+    #       so I would like to implement being able to choose a
+    #       an os in case a user would like to use a particular one
 		chosen_os="${os}"
 	fi
 	# Creating machine to build kali image in packet's vps
 	echo "Creating new server for a packer host."
   packet_service_url="projects/${PACKET_PROJECT_UUID}/devices"
-  export PACKET_SERVER_ID=$($curl -X POST \
+  PACKET_SERVER_ID=$($curl -X POST \
   "${packet_base_url}/${packet_service_url}" \
   -H 'Content-Type: application/json' \
   -H "X-Auth-Token: ${PACKET_API_KEY}" \
@@ -36,13 +48,13 @@ create_server(){
     \"plan\": \"${chosen_plan}\",
     \"operating_system\": \"${chosen_os}\"
   }" | jq -r '.id')
-  
+  export PACKET_SERVER_ID
 }
 
 choose_packet_options(){
   read -r packet_choice
   eval "${1}=\"${packet_service_array[$packet_choice]}\""
-  export $1
+  export 1
 }
 
 packet_get_service(){
@@ -59,7 +71,7 @@ packet_get_service(){
 		plan)
 			packet_service_url="projects/${PACKET_PROJECT_UUID}/plans"
       packet_service_headers="server types"
-      local_facility=$(echo $facility | cut -d ' ' -f 1)
+      local_facility=$(echo "${facility}" | cut -d ' ' -f 1)
       if [[ ! $local_facility == 'any' ]] ; then
         facility_id=$($curl -X GET "${packet_base_url}/projects/${PACKET_PROJECT_UUID}/facilities" -H "X-Auth-Token: ${PACKET_API_KEY}" | jq -r ".facilities[] | select( .code==\"${local_facility}\") | .id")
         packet_post_jq_pattern=".plans[] | select(.available_in[].href==\"/facilities/${facility_id}\") | .slug"
@@ -88,7 +100,7 @@ packet_get_service(){
 			;;
 	esac
   echo
-  echo ${packet_service_headers}
+  echo "${packet_service_headers}"
 	packet_service_response=$(${curl} -X GET "${packet_base_url}/${packet_service_url}" -H "X-Auth-Token: ${PACKET_API_KEY}" | jq -r "${packet_post_jq_pattern}")
   tmp_ifs=${IFS}
   IFS=$'\n'
@@ -96,13 +108,13 @@ packet_get_service(){
   for line in ${packet_service_response} ; do
     
     if [[ $1 == "facility" ]] && [[ $counterz -eq 0 ]] ; then
-      printf "%d) %s\n" $counterz "${packet_service_array[${counterz}]}"
-      counterz=$(( $counterz + 1 ))
+      printf '%d) %s\n' $counterz "${packet_service_array[${counterz}]}"
+      counterz=$(( counterz + 1 ))
     fi
     
     packet_service_array+=("${line}")
-    printf "%d) %s\n" $counterz "${packet_service_array[${counterz}]}"
-    counterz=$(( $counterz + 1 ))
+    printf '%d) %s\n' $counterz "${packet_service_array[${counterz}]}"
+    counterz=$(( "${counterz}" + 1 ))
   done
   IFS=${tmp_ifs}
 }
@@ -117,17 +129,18 @@ packet_setup(){
   for param in "${packet_parameters[@]}" ; do
     echo
     echo "Please choose from the following choices for: ${param}"
-    packet_get_service ${param}
-		choose_packet_options ${param}
+    packet_get_service "${param}"
+		choose_packet_options "${param}"
   done
 }
 
 retrieve(){
-  if ssh "${2}" -t "[ -f \"${1}\" ]" ; then
-    scp "${2}":"${1}" ${ARTIFACTS_DIR}
+  if ssh ${3} -t "[ -f \"${1}\" ]" ; then
+    scp "${2}" ${3}:"${1}" "${ARTIFACTS_DIR}"
   else
-    printf "Couldn't find: %s\n" "${1}"
-    delete_server
+    msg='Could not find: %s\n' "${1}"
+    printf '%s' "$msg"
+    delete_server "${msg}"
     exit 1
   fi
 }
@@ -147,23 +160,23 @@ wait_to_finish(){
   minutes_passed=0
   project_folder="${1}"
   ssh_args="${2}"
+  ssh_to="${3}"
   status_file="${project_folder}/status.txt"
-  # TODO: check if glob works for scp
   logs="${project_folder}/packer.log"
   output_dir="${project_folder}"
   outputs=("red-virtualbox.box")
   too_much_time=120
 
-  if [[ $# -eq 3 ]] ; then
+  if [[ $# -eq 4 ]] ; then
     while [[ ${minutes_passed} -lt ${too_much_time} ]] ; do
 
-      statuz=$(ssh "${ssh_args}" -t cat ${status_file}  )
-      statuz=$(echo $statuz | tr -d '\r')
+      statuz=$(ssh "${ssh_args}" -t cat "${status_file}"  )
+      statuz=$(echo "${statuz}" | tr -d '\r')
 
 
       if [[ "${statuz}" == "building" ]] ; then
         echo "$statuz"
-        retrieve "${logs}" "${ssh_args}"
+        retrieve "${logs}" "${ssh_args}" "${ssh_to}"
         sleep 5m
         (( minutes_passed += 5 ))
       else
@@ -191,9 +204,9 @@ wait_to_finish(){
     else
       msg='Build failed, getting logs..."'
       echo "${msg}"
-      retrieve "${logs}" "${ssh_args}"
+      retrieve "${logs}" "${ssh_args}" "${ssh_to}"
       for output in "${outputs[@]}" ; do
-        retrieve "${output_dir}/${output}" "${ssh_args}"
+        retrieve "${output_dir}/${output}" "${ssh_args}" "${ssh_to}"
       done
       send_text "${msg}"
       # delete_server # comment out debug
@@ -206,7 +219,7 @@ wait_to_finish(){
 
 add_ecdsa(){
   echo "adding ecdsa key for host: ${1}"
-  ssh-keyscan $1 | tee -a ~/.ssh/known_hosts
+  ssh-keyscan "${1}" | tee -a ~/.ssh/known_hosts
 }
 
 run_remote(){
@@ -218,10 +231,10 @@ run_remote(){
 
   user=root
   project_folder="/opt/packer_kali"
-  ssh_args="-oStrictHostKeyChecking=no"
+  ssh_args="-o SendEnv='CIRCLECI'"
   ssh_to="${user}@${1}"
 
-  add_ecdsa $1
+  add_ecdsa "${1}"
 
   if [[ $# -eq 1 ]] ; then
   
@@ -231,15 +244,16 @@ run_remote(){
     msg='starting build'
     echo "${msg}"
     send_text "${msg}"
-    ssh ${ssh_to} -t "CIRCLECI=true bash ${project_folder}/ci/bootstrap.sh"
+    ssh ${ssh_to} -t "bash ${project_folder}/ci/bootstrap.sh"
   else
-    ssh ${ssh_to} -t "CIRCLECI=true bash ${project_folder}/build.sh ${2}"
+    ssh ${ssh_to} -t "bash ${project_folder}/build.sh ${2}"
   fi
   # waiting 5 minutes before continuing
   sleep 5m
 
   # closing function to see the status of the job
-  wait_to_finish "${project_folder}" "${ssh_to}" ${@}
+  echo "${@}"
+  wait_to_finish "${project_folder}" "${ssh_args}" "${ssh_to}" ${@}
 }
 
 check_post(){
@@ -260,7 +274,7 @@ start_build(){
   #
   #     ;;
   # esac
-  run_remote $1 $2
+  run_remote "$1" "$2"
 }
 
 main(){

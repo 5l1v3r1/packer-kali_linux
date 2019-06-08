@@ -4,7 +4,7 @@
 # had to fix something, because they were either uncessary or apparently not applicable any more in 2.2.4 of vagrant
 
 # normal
-set -eo pipefail
+set -exo pipefail
 # debug
 # set -exo pipefail
 
@@ -15,10 +15,8 @@ VERSION="$4"
 FILE="$5"
 DESC='dev box'
 base_url='https://app.vagrantup.com/api/v1/box'
-
-if [[ ! -z $CIRCLECI ]] ; then
-  CIRCLECI=''
-fi
+variables_file='variables.json'
+variables_file_path="./${variables_file}"
 
 # declaring after passed args because they are "undeclared"
 set -u
@@ -54,13 +52,13 @@ if [ ! -f /usr/bin/jq ]; then
 fi
 
 # Ensure the credentials file is available.
-if [[ -z $CIRCLECI ]] ; then
-  if [ -f $BASE/.credentialsrc ]; then
-    source $BASE/.credentialsrc
-  else
-    tput setaf 1; printf "\nError. The credentials file is missing.\n\n"; tput sgr0
-    exit 1
-  fi
+if [ -f $BASE/.credentialsrc ]; then
+  source $BASE/.credentialsrc
+elif [[ -f "${variables_file_path}" ]] ; then
+  VAGRANT_CLOUD_TOKEN="$(grep vagrant ${variables_file_path} | cut -d '"' -f 4)"
+else
+  tput setaf 1; printf "\nError. The credentials file is missing.\n\n"; tput sgr0
+  exit 1
 fi
 
 if [ -z ${VAGRANT_CLOUD_TOKEN} ]; then

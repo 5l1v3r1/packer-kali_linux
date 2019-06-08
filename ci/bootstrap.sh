@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 
-set -e
+# initially set
+#set -e
+# tmp debug
+set -ex
+# normal
+#set -euo pipefail
+# debug
+# set -exuo pipefail
 
 curl="curl -sSL"
 
@@ -187,7 +194,7 @@ prep_for_packer(){
   cp templates/template.json kali.json
   tmux new-session -s "${session_name}" -d
   # normal
-  tmux send-keys -t "$session_name:0" 'time packer build -var-file variables.json kali.json &> packer.log && echo "success" > status.txt || echo "failed" > status.txt' Enter
+  tmux send-keys -t "$session_name:0" "" Enter
   # debug
   # tmux send-keys -t "$session_name:0" 'export PACKER_LOG=1; time packer build -var-file variables.json kali.json &> packer.log && echo "success" > status.txt || echo "failed" > status.txt' Enter
 }

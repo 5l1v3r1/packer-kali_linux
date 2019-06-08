@@ -1,11 +1,31 @@
 #!/usr/bin/env bash
 
-# normal
-set -euo pipefail
-# debug
+# if [[ -z $CIRCLECI ]] ; then
+#   CIRCLECI=''
+# fi
+#
+# # normal
 # set -euo pipefail
-
+# # debug
+# # set -euo pipefail
+# execution(){
+#   time packer build -var-file variables.json kali.json &> packer.log &&
+#     for provider in $(ls ./*.box); do
+#       bash ./scripts/packer-upload.sh $(grep vm_name variables.json | cut -d '"' -f 4 | tr '/' ' ') $(echo $provider | reg | cut -d '.' -f 2 | cut -d '-' -f 1 | rev) $(grep vm_version variables.json | cut -d '"' -f 4) ./${provider} &>> packer.log
+#     done && echo success > status.txt || echo failed > status.txt
+# }
+#
+# if [[ -f ./variables.json ]] ; then
+#   for i in $(grep run .circleci/config.yml | rev | awk '{print $1}' | rev) ; do
+#     # executing everying script found in circle ci config
+#     bash $i
+#   done
+#   execution
+# else
+#   if [[  ]]
+#   execution
+# fi
 for i in $(grep run .circleci/config.yml | rev | awk '{print $1}' | rev) ; do
   # executing everying script found in circle ci config
-  bash $i
+  bash "$i"
 done
