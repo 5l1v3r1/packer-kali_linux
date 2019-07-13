@@ -74,7 +74,7 @@ currentKali=$(curl -s $kaliBaseUrl | grep 'kali-' | grep -oE 'href.*' | cut -d '
 namez="kali-linux_amd64"
 
 # this is normally declared in the vagrant box (i.e. debugging/developemnt)
-if [[ -z $DEV ]] ; then
+if ! [[ -z $DEV ]] ; then
   namez="${namez}_dev"
 fi
 

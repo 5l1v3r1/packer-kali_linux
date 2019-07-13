@@ -156,6 +156,20 @@ send_text(){
   fi
 }
 
+external_upload_script(){
+  current_box_upload="${1}"
+  project_dir="$(echo "${current_box_upload}" | rev | cut -d '/' -f 2- | rev )"
+  script_path="${project_dir}/scripts"
+  script_name='packer-upload.sh'
+  username_and_box_name="$( grep vm_name variables.json | cut -d '"' -f 4 | tr '/' ' ' )"
+  provider="$(echo "${current_box_upload}" | rev | cut -d '.' -f 2 | rev | tr '[:upper:]' '[:lower:]' )"
+  box_version="$(grep vm_version variables.json  | cut -d '"' -f 4)"
+
+  # format for executing command
+  # ./scripts/packer-upload.sh elrey741 kali-linux_amd64_dev virtualbox 0.0.0 /tmp/artifacts/red-virtualbox.box
+  ssh "${2} " ${3} -t "pushd ${project_folder} && bash ${script_path}/${script_name} ${username_and_box_name} ${provider} ${box_version} ${current_box_upload}"
+}
+
 wait_to_finish(){
   minutes_passed=0
   project_folder="${1}"
@@ -164,13 +178,13 @@ wait_to_finish(){
   status_file="${project_folder}/status.txt"
   logs="${project_folder}/packer.log"
   output_dir="${project_folder}"
-  outputs=("red-virtualbox.box")
+  outputs=("red.virtualbox.box")
   too_much_time=120
-
+  # ssh "${ssh_args}" "${ssh_to}" -t echo "${outputs[@]}"
   if [[ $# -eq 4 ]] ; then
     while [[ ${minutes_passed} -lt ${too_much_time} ]] ; do
 
-      statuz=$(ssh "${ssh_args}" -t cat "${status_file}"  )
+      statuz=$(ssh "${ssh_args}" "${ssh_to}" -t cat "${status_file}"  )
       statuz=$(echo "${statuz}" | tr -d '\r')
 
 
@@ -199,15 +213,18 @@ wait_to_finish(){
       msg='Build succeeded!'
       echo "${msg}"
       send_text "${msg}"
+      retrieve "${logs}" "${ssh_args}" "${ssh_to}"
+      for output in "${outputs[@]}" ; do
+        current_box="${output_dir}/${output}"
+        external_upload_script "${current_box}"  "${ssh_args}" "${ssh_to}" 
+        retrieve "${current_box}" "${ssh_args}" "${ssh_to}"
+      done
       delete_server
       exit 0
     else
       msg='Build failed, getting logs..."'
       echo "${msg}"
       retrieve "${logs}" "${ssh_args}" "${ssh_to}"
-      for output in "${outputs[@]}" ; do
-        retrieve "${output_dir}/${output}" "${ssh_args}" "${ssh_to}"
-      done
       send_text "${msg}"
       # delete_server # comment out debug
       exit 1
